@@ -347,7 +347,21 @@
 
         <!-- LOG CUTI -->
         <div class="form-section-label">Pengambilan Cuti</div>
-        <div class="form-group"><label>Tanggal Cuti</label><input id="inp-tgl-cuti" type="date"/></div>
+        <div class="form-group">
+          <label>Tanggal Mulai</label>
+          <input id="inp-tgl-mulai" type="date" oninput="updateCutiPreview()"/>
+        </div>
+        <div class="form-group">
+          <label>Tanggal Selesai</label>
+          <input id="inp-tgl-selesai" type="date" oninput="updateCutiPreview()"/>
+        </div>
+        <div id="cuti-preview" style="display:none; margin-bottom:8px; padding:8px 10px; background:var(--bg-input); border-radius:8px; border:1px solid var(--border);">
+          <div style="font-size:11px; color:var(--text-muted); font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:3px;">Durasi Cuti</div>
+          <div id="cuti-preview-text" style="font-size:13px; font-weight:700; color:var(--accent);"></div>
+        </div>
+        <div id="cuti-warning" style="display:none; margin-bottom:8px; padding:8px 10px; background:var(--red-bg); border-radius:8px; border:1px solid var(--accent-red);">
+          <div id="cuti-warning-text" style="font-size:12px; font-weight:600; color:var(--accent-red);"></div>
+        </div>
         <button class="btn btn-green" onclick="logCuti()">📋  Log Cuti Karyawan</button>
 
         <div class="sep" style="margin:14px 0;"></div>
@@ -481,7 +495,32 @@
 <!-- Toast container -->
 <div id="toast-container"></div>
 
-<script>
+<script type="module">
+// ─── FIREBASE CONFIG — GANTI BAGIAN INI DENGAN CONFIG KAMU ───────────────────
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyDJVqxezqWthIg6Lixkrhw-tlWo_uf8WFw",
+  authDomain: "feen-marine-hr.firebaseapp.com",
+  databaseURL: "https://feen-marine-hr-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "feen-marine-hr",
+  storageBucket: "feen-marine-hr.firebasestorage.app",
+  messagingSenderId: "912900137932",
+  appId: "1:912900137932:web:2857c21d0573522630b369",
+  measurementId: "G-NLW7347T54"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+
 // ─── DEPARTMENTS ───────────────────────────────────────────────────────────────
 const DEPARTMENTS = [
   "Engineering","Electrical & Automation","Electrical Production","Procurement",
@@ -492,16 +531,48 @@ const DEPARTMENTS = [
 ];
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
-let employees = JSON.parse(localStorage.getItem('fm_employees') || '[]');
-let logs      = JSON.parse(localStorage.getItem('fm_logs')      || '[]');
+let employees = [];
+let logs      = [];
 let selectedId = null;
-let sortCol    = 'Nama', sortAsc = true;
+let sortCol    = 'nama', sortAsc = true;
 let histSortCol = '', histSortAsc = true;
 let confirmCallback = null;
 
+// ─── FIREBASE: LISTEN REAL-TIME ───────────────────────────────────────────────
+onValue(ref(db, 'employees'), snap => {
+  employees = [];
+  snap.forEach(child => employees.push({ id: child.key, ...child.val() }));
+  renderTable(); updateStats();
+});
+
+onValue(ref(db, 'logs'), snap => {
+  logs = [];
+  snap.forEach(child => logs.push({ id: child.key, ...child.val() }));
+  logs.sort((a,b) => b.timestamp.localeCompare(a.timestamp));
+  renderHistory();
+});
+
+// ─── FIREBASE: WRITE HELPERS ─────────────────────────────────────────────────
+async function fbSetEmployee(emp) {
+  const { id, ...data } = emp;
+  await set(ref(db, `employees/${id}`), data);
+}
+async function fbRemoveEmployee(id) {
+  await remove(ref(db, `employees/${id}`));
+}
+async function fbPushLog(logObj) {
+  const { id, ...data } = logObj;
+  await push(ref(db, 'logs'), data);
+}
+async function fbClearLogs() {
+  await set(ref(db, 'logs'), null);
+}
+
+// persist() sekarang tidak diperlukan — Firebase auto-sync
+function persist() {} // no-op, kept for compatibility
+
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 (function init() {
-  // Populate dept dropdowns
   ['inp-dept','edit-dept'].forEach(id => {
     const el = document.getElementById(id);
     DEPARTMENTS.forEach(d => {
@@ -514,12 +585,30 @@ let confirmCallback = null;
   const all = document.createElement('option'); all.value=''; all.textContent='Semua Departemen'; df.appendChild(all);
   DEPARTMENTS.forEach(d => { const o = document.createElement('option'); o.value=o.textContent=d; df.appendChild(o); });
 
-  // Set today as default
   const today = new Date().toISOString().slice(0,10);
   document.getElementById('inp-tgl').value = today;
-  document.getElementById('inp-tgl-cuti').value = today;
+  document.getElementById('inp-tgl-mulai').value = today;
+  document.getElementById('inp-tgl-selesai').value = today;
 
-  renderTable(); renderHistory(); updateStats();
+  // Expose functions to global scope (needed because type="module" is scoped)
+  window.saveEmployee     = saveEmployee;
+  window.logCuti          = logCuti;
+  window.resetJatahSelected = resetJatahSelected;
+  window.exportCSV        = exportCSV;
+  window.refreshAll       = refreshAll;
+  window.switchTab        = switchTab;
+  window.sortBy           = sortBy;
+  window.sortHistBy       = sortHistBy;
+  window.clearHistory     = clearHistory;
+  window.ctxEdit          = ctxEdit;
+  window.ctxReset         = ctxReset;
+  window.ctxDelete        = ctxDelete;
+  window.closeConfirm     = closeConfirm;
+  window.confirmOK        = confirmOK;
+  window.closeEdit        = closeEdit;
+  window.saveEdit         = saveEdit;
+  window.updateCutiPreview = updateCutiPreview;
+
   tickClock();
 })();
 
@@ -541,12 +630,6 @@ function setStatus(msg) {
   clearTimeout(statusTimer);
   document.getElementById('status-txt').textContent = msg;
   statusTimer = setTimeout(() => document.getElementById('status-txt').textContent = '● Siap', 5000);
-}
-
-// ─── SAVE ─────────────────────────────────────────────────────────────────────
-function persist() {
-  localStorage.setItem('fm_employees', JSON.stringify(employees));
-  localStorage.setItem('fm_logs',      JSON.stringify(logs));
 }
 
 // ─── STATS ────────────────────────────────────────────────────────────────────
@@ -621,6 +704,7 @@ function selectRow(id, tr) {
   document.querySelectorAll('#emp-tbody tr').forEach(r => r.classList.remove('selected'));
   selectedId = id;
   tr.classList.add('selected');
+  updateCutiPreview();
 }
 
 // ─── SORTING ──────────────────────────────────────────────────────────────────
@@ -649,7 +733,7 @@ function sortHistBy(col) {
 }
 
 // ─── ADD EMPLOYEE ─────────────────────────────────────────────────────────────
-function saveEmployee() {
+async function saveEmployee() {
   const nama  = document.getElementById('inp-nama').value.trim();
   const dept  = document.getElementById('inp-dept').value;
   const tgl   = document.getElementById('inp-tgl').value;
@@ -661,14 +745,55 @@ function saveEmployee() {
     toast(`Karyawan '${nama}' sudah terdaftar!`, 'warning'); return;
   }
   const emp = { id: 'emp-'+Date.now(), nama, departemen: dept, tglKontrak: tgl, jatahAwal: jatah, terpakai: 0 };
-  employees.push(emp);
-  persist();
-  addLog(nama, dept, tgl, `Karyawan baru ditambahkan (Jatah: ${jatah} hari)`);
+  await fbSetEmployee(emp);
+  await fbPushLog({ timestamp: nowTs(), nama, departemen: dept, tglCuti: tgl, keterangan: `Karyawan baru ditambahkan (Jatah: ${jatah} hari)` });
   document.getElementById('inp-nama').value = '';
   document.getElementById('inp-jatah').value = '12';
-  renderTable(); renderHistory();
   setStatus(`✓  Karyawan '${nama}' (${dept}) ditambahkan.`);
   toast(`'${nama}' — ${dept} berhasil ditambahkan.`, 'success');
+}
+
+// ─── CUTI PREVIEW ─────────────────────────────────────────────────────────────
+function countDays(mulai, selesai) {
+  const a = new Date(mulai + 'T00:00:00');
+  const b = new Date(selesai + 'T00:00:00');
+  return Math.floor((b - a) / 86400000) + 1;
+}
+
+function updateCutiPreview() {
+  const mulai   = document.getElementById('inp-tgl-mulai').value;
+  const selesai = document.getElementById('inp-tgl-selesai').value;
+  const preview = document.getElementById('cuti-preview');
+  const warning = document.getElementById('cuti-warning');
+  preview.style.display = 'none';
+  warning.style.display = 'none';
+
+  if (!mulai || !selesai) return;
+
+  const days = countDays(mulai, selesai);
+  if (days <= 0) {
+    warning.style.display = 'block';
+    document.getElementById('cuti-warning-text').textContent = '⚠ Tanggal selesai harus setelah tanggal mulai!';
+    return;
+  }
+
+  // Check against selected employee sisa
+  if (selectedId) {
+    const emp = employees.find(e => e.id === selectedId);
+    if (emp) {
+      const sisa = emp.jatahAwal - emp.terpakai;
+      if (days > sisa) {
+        warning.style.display = 'block';
+        document.getElementById('cuti-warning-text').textContent =
+          `⚠ Kurang! Butuh ${days} hari, sisa cuti ${emp.nama} hanya ${sisa} hari.`;
+        return;
+      }
+    }
+  }
+
+  preview.style.display = 'block';
+  document.getElementById('cuti-preview-text').textContent =
+    `${formatDate(mulai)}  →  ${formatDate(selesai)}  ·  ${days} hari`;
 }
 
 // ─── LOG CUTI ─────────────────────────────────────────────────────────────────
@@ -678,17 +803,32 @@ function logCuti() {
   if (!emp) { toast('Karyawan tidak ditemukan!','error'); return; }
   const sisa = emp.jatahAwal - emp.terpakai;
   if (sisa <= 0) { toast(`Jatah cuti '${emp.nama}' sudah habis!`,'error'); return; }
-  const tglCuti = document.getElementById('inp-tgl-cuti').value;
-  if (!tglCuti) { toast('Tanggal cuti harus diisi!','error'); return; }
+
+  const mulai   = document.getElementById('inp-tgl-mulai').value;
+  const selesai = document.getElementById('inp-tgl-selesai').value;
+  if (!mulai)   { toast('Tanggal mulai cuti harus diisi!','error'); return; }
+  if (!selesai) { toast('Tanggal selesai cuti harus diisi!','error'); return; }
+
+  const days = countDays(mulai, selesai);
+  if (days <= 0) { toast('Tanggal selesai harus setelah tanggal mulai!','error'); return; }
+  if (days > sisa) {
+    toast(`Jatah tidak cukup! Butuh ${days} hari, sisa hanya ${sisa} hari.`,'error'); return;
+  }
+
+  const rangeLabel = mulai === selesai
+    ? formatDate(mulai)
+    : `${formatDate(mulai)} s/d ${formatDate(selesai)}`;
+
   showConfirm('Konfirmasi Cuti',
-    `Catat cuti untuk:\n${emp.nama}  ·  ${emp.departemen}\nTanggal: ${formatDate(tglCuti)}`,
-    false, () => {
-      emp.terpakai += 1;
-      persist();
-      addLog(emp.nama, emp.departemen, tglCuti, 'Cuti 1 Hari');
-      renderTable(); renderHistory();
-      setStatus(`✓  Cuti ${emp.nama} dicatat.`);
-      toast(`Cuti '${emp.nama}' berhasil dicatat.`, 'success');
+    `Catat cuti untuk:\n${emp.nama}  ·  ${emp.departemen}\nTanggal: ${rangeLabel}\nDurasi: ${days} hari`,
+    false, async () => {
+      await fbSetEmployee({ ...emp, terpakai: emp.terpakai + days });
+      const keterangan = days === 1 ? 'Cuti 1 Hari' : `Cuti ${days} Hari (${mulai} s/d ${selesai})`;
+      await fbPushLog({ timestamp: nowTs(), nama: emp.nama, departemen: emp.departemen, tglCuti: `${mulai} s/d ${selesai}`, keterangan });
+      document.getElementById('cuti-preview').style.display = 'none';
+      document.getElementById('cuti-warning').style.display = 'none';
+      setStatus(`✓  Cuti ${emp.nama} (${days} hari) dicatat.`);
+      toast(`Cuti '${emp.nama}' ${days} hari berhasil dicatat.`, 'success');
     });
 }
 
@@ -699,12 +839,10 @@ function resetJatahSelected() {
   if (!emp) return;
   showConfirm('Reset Jatah Cuti',
     `Reset jatah cuti '${emp.nama}' (${emp.departemen})\nkembali ke ${emp.jatahAwal} hari (Terpakai → 0)?\n\nAksi ini akan dicatat di log.`,
-    false, () => {
+    false, async () => {
       const today = new Date().toISOString().slice(0,10);
-      addLog(emp.nama, emp.departemen, today, `Reset Jatah → ${emp.jatahAwal} hari`);
-      emp.terpakai = 0;
-      persist();
-      renderTable(); renderHistory();
+      await fbPushLog({ timestamp: nowTs(), nama: emp.nama, departemen: emp.departemen, tglCuti: today, keterangan: `Reset Jatah → ${emp.jatahAwal} hari` });
+      await fbSetEmployee({ ...emp, terpakai: 0 });
       setStatus(`♻  Jatah cuti '${emp.nama}' direset.`);
       toast(`Jatah cuti '${emp.nama}' berhasil direset.`, 'success');
     });
@@ -729,11 +867,9 @@ function deleteEmployee() {
   if (!selectedId) { toast('Pilih karyawan di tabel terlebih dahulu.','warning'); return; }
   const emp = employees.find(e => e.id === selectedId);
   if (!emp) return;
-  showConfirm('Hapus Karyawan', `Data '${emp.nama}' akan dihapus permanen.\nLanjutkan?`, true, () => {
-    employees = employees.filter(e => e.id !== selectedId);
+  showConfirm('Hapus Karyawan', `Data '${emp.nama}' akan dihapus permanen.\nLanjutkan?`, true, async () => {
+    await fbRemoveEmployee(selectedId);
     selectedId = null;
-    persist();
-    renderTable(); renderHistory();
     setStatus(`✕  Data '${emp.nama}' dihapus.`);
     toast(`Karyawan '${emp.nama}' dihapus.`, 'warning');
   });
@@ -751,7 +887,7 @@ function openEditDialog(id) {
   document.getElementById('edit-overlay').classList.add('show');
 }
 function closeEdit() { document.getElementById('edit-overlay').classList.remove('show'); }
-function saveEdit() {
+async function saveEdit() {
   const oldNama = document.getElementById('edit-old-nama').value;
   const emp = employees.find(e => e.nama === oldNama || e.id === selectedId);
   if (!emp) { closeEdit(); return; }
@@ -760,12 +896,7 @@ function saveEdit() {
   const newTgl   = document.getElementById('edit-tgl').value;
   const newJatah = parseInt(document.getElementById('edit-jatah').value)||12;
   if (!newNama) { toast('Nama tidak boleh kosong!','error'); return; }
-  emp.nama        = newNama;
-  emp.departemen  = newDept;
-  emp.tglKontrak  = newTgl;
-  emp.jatahAwal   = newJatah;
-  persist();
-  renderTable(); renderHistory();
+  await fbSetEmployee({ ...emp, nama: newNama, departemen: newDept, tglKontrak: newTgl, jatahAwal: newJatah });
   setStatus(`✓  Data '${newNama}' diperbarui.`);
   toast(`Data '${newNama}' diperbarui.`, 'success');
   closeEdit();
@@ -785,12 +916,9 @@ function closeConfirm() { document.getElementById('confirm-overlay').classList.r
 function confirmOK() { if (confirmCallback) confirmCallback(); closeConfirm(); }
 
 // ─── HISTORY ─────────────────────────────────────────────────────────────────
-function addLog(nama, dept, tglCuti, keterangan) {
+function nowTs() {
   const now = new Date();
-  const ts  = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-  logs.unshift({ id:'log-'+Date.now(), timestamp: ts, nama, departemen: dept, tglCuti, keterangan });
-  if (logs.length > 200) logs = logs.slice(0,200);
-  persist();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
 }
 
 function renderHistory() {
@@ -825,10 +953,8 @@ function renderHistory() {
 function clearHistory() {
   showConfirm('Bersihkan History',
     'Semua log aktivitas cuti akan dihapus permanen.\nLanjutkan?',
-    true, () => {
-      logs = [];
-      persist();
-      renderHistory();
+    true, async () => {
+      await fbClearLogs();
       setStatus('✓  Log history dibersihkan.');
       toast('Semua log history dihapus.', 'info');
     });
@@ -851,9 +977,9 @@ function exportCSV() {
 
 // ─── REFRESH ─────────────────────────────────────────────────────────────────
 function refreshAll() {
-  renderTable(); renderHistory();
-  setStatus('✓  Data direfresh.');
-  toast('Data berhasil direfresh.','info');
+  // Firebase listeners auto-sync; just give feedback
+  setStatus('✓  Data direfresh (real-time aktif).');
+  toast('Data selalu sinkron secara real-time.','info');
 }
 
 // ─── TABS ─────────────────────────────────────────────────────────────────────
