@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>PT Feen Marine — HR Leave Management</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-main:       #F0F4F8;
+    --bg-card:       #FFFFFF;
+    --bg-sidebar:    #E8EDF2;
+    --bg-input:      #EFF1F3;
+    --border:        #CED4DA;
+    --accent:        #005A9E;
+    --accent-hover:  #004880;
+    --accent-green:  #1A7F37;
+    --accent-blue:   #0969DA;
+    --accent-warn:   #9A6700;
+    --accent-red:    #CF222E;
+    --text-primary:  #1F2328;
+    --text-secondary:#57606A;
+    --text-muted:    #8C959F;
+    --separator:     #D0D7DE;
+    --tree-odd:      #FFFFFF;
+    --tree-even:     #F6F8FA;
+    --tree-sel:      #DFF0FF;
+    --green-bg:      #DAFBE1; --green-fg: #116329;
+    --yellow-bg:     #FFF8C5; --yellow-fg: #7D4E00;
+    --red-bg:        #FFEBE9; --red-fg:   #82071E;
+  }
+
+  html, body { height: 100%; overflow: hidden; font-family: 'DM Sans', sans-serif; color: var(--text-primary); }
+
+  /* ─── LAYOUT ─── */
+  #app { display: flex; flex-direction: column; height: 100vh; background: var(--bg-main); }
+
+  /* ─── TOP BAR ─── */
+  #topbar {
+    height: 62px; background: var(--accent); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px; z-index: 100;
+  }
+  #topbar .brand { display: flex; align-items: center; gap: 8px; }
+  #topbar .brand .anchor { font-size: 24px; }
+  #topbar .brand h1 { font-size: 18px; font-weight: 800; color: #fff; letter-spacing: -0.3px; }
+  #topbar .brand span { color: #A8C8F0; font-size: 13px; font-weight: 400; margin-left: 4px; }
+  #topbar .clock-box {
+    background: #004880; border-radius: 8px; padding: 6px 14px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  #topbar .clock-date { color: #A8C8F0; font-size: 12px; font-weight: 500; }
+  #topbar .clock-time { color: #fff; font-size: 16px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+
+  /* ─── BODY AREA ─── */
+  #body { display: flex; flex: 1; overflow: hidden; }
+
+  /* ─── SIDEBAR ─── */
+  #sidebar {
+    width: 300px; flex-shrink: 0; background: var(--bg-sidebar);
+    border-right: 1px solid var(--separator); display: flex; flex-direction: column;
+    overflow-y: auto;
+  }
+
+  /* Stat cards */
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 14px 14px 6px; }
+  .stat-card {
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 8px; text-align: center;
+  }
+  .stat-card .val { font-size: 24px; font-weight: 800; }
+  .stat-card .lbl { font-size: 10px; color: var(--text-muted); line-height: 1.3; margin-top: 2px; }
+  .stat-card.blue  .val { color: var(--accent-blue); }
+  .stat-card.green .val { color: var(--accent-green); }
+  .stat-card.warn  .val { color: var(--accent-warn); }
+  .stat-card.red   .val { color: var(--accent-red); }
+
+  .sep { height: 1px; background: var(--separator); margin: 8px 0; }
+
+  /* Sidebar form */
+  .sidebar-form { padding: 0 14px 14px; flex: 1; }
+  .form-section-label {
+    font-size: 10px; font-weight: 700; color: var(--text-muted);
+    letter-spacing: 0.8px; text-transform: uppercase; margin: 12px 0 6px;
+  }
+  .form-group { margin-bottom: 8px; }
+  .form-group label { display: block; font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 4px; }
+  .form-group input, .form-group select {
+    width: 100%; height: 36px; padding: 0 10px;
+    background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px;
+    font-family: inherit; font-size: 13px; color: var(--text-primary); outline: none;
+    transition: border-color .15s;
+  }
+  .form-group input:focus, .form-group select:focus { border-color: var(--accent); background: #fff; }
+  .form-group .date-row { display: flex; gap: 4px; }
+  .form-group .date-row input { flex: 1; }
+  .form-group .date-row button {
+    width: 36px; height: 36px; background: var(--accent); border: none; border-radius: 8px;
+    color: #fff; cursor: pointer; font-size: 14px; flex-shrink: 0;
+    transition: background .15s;
+  }
+  .form-group .date-row button:hover { background: var(--accent-hover); }
+
+  .btn { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; height: 40px; border-radius: 8px; border: none; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 700; transition: all .15s; }
+  .btn-primary  { background: var(--accent); color: #fff; }
+  .btn-primary:hover  { background: var(--accent-hover); }
+  .btn-green    { background: var(--accent-green); color: #fff; }
+  .btn-green:hover { background: #156D2F; }
+  .btn-ghost    { background: var(--bg-input); color: var(--text-secondary); border: 1px solid var(--border); height: 36px; }
+  .btn-ghost:hover { background: var(--separator); }
+  .btn-warn     { background: var(--bg-input); color: var(--accent-warn); border: 1px solid #e9b66a; height: 36px; }
+  .btn-warn:hover { background: #FFF8C5; }
+  .btn + .btn   { margin-top: 6px; }
+
+  /* ─── MAIN ─── */
+  #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* Toolbar tabs */
+  #toolbar {
+    height: 50px; background: var(--bg-card); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; flex-shrink: 0; gap: 0; padding: 0 6px;
+  }
+  .tab-btn {
+    height: 50px; padding: 0 20px; border: none; background: transparent;
+    color: var(--text-secondary); font-family: inherit; font-size: 14px; font-weight: 600;
+    cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
+    transition: all .15s; white-space: nowrap;
+  }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--bg-input); }
+  .tab-btn:hover:not(.active) { background: var(--bg-input); color: var(--text-primary); }
+  .toolbar-divider { width: 1px; height: 30px; background: var(--border); margin: 0 8px; }
+  .toolbar-right { display: flex; align-items: center; gap: 8px; margin-left: auto; padding-right: 8px; }
+  #dept-filter {
+    height: 34px; padding: 0 10px; background: var(--bg-input); border: 1px solid var(--border);
+    border-radius: 8px; font-family: inherit; font-size: 13px; color: var(--text-primary); outline: none;
+    min-width: 200px;
+  }
+  .search-box {
+    height: 34px; padding: 0 10px 0 32px; background: var(--bg-input); border: 1px solid var(--border);
+    border-radius: 8px; font-family: inherit; font-size: 13px; color: var(--text-primary); outline: none;
+    width: 200px; position: relative;
+  }
+  .search-wrap { position: relative; }
+  .search-wrap::before { content: '🔍'; position: absolute; left: 9px; top: 50%; transform: translateY(-50%); font-size: 13px; pointer-events: none; z-index: 1; }
+  .search-wrap input { width: 200px; height: 34px; padding: 0 10px 0 30px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; font-family: inherit; font-size: 13px; outline: none; }
+  .search-wrap input:focus { border-color: var(--accent); background: #fff; }
+
+  /* ─── CONTENT ─── */
+  #content { flex: 1; overflow: hidden; }
+  .tab-panel { display: none; height: 100%; overflow-y: auto; padding: 16px; }
+  .tab-panel.active { display: block; }
+
+  /* ─── TABLE CARD ─── */
+  .table-card {
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+    overflow: hidden; height: calc(100% - 0px);
+  }
+  .table-card-header {
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .table-card-header .title { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; }
+  .table-card-header .hint { font-size: 11px; color: var(--text-muted); }
+  .table-wrap { overflow-y: auto; height: calc(100% - 44px); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    background: var(--bg-input); padding: 10px 14px; text-align: left;
+    font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;
+    letter-spacing: 0.6px; border-bottom: 1px solid var(--border);
+    cursor: pointer; user-select: none; white-space: nowrap; position: sticky; top: 0;
+  }
+  thead th:hover { background: var(--tree-sel); color: var(--accent); }
+  thead th.sorted { color: var(--accent); }
+  thead th.center { text-align: center; }
+  tbody tr { border-bottom: 1px solid var(--separator); cursor: pointer; }
+  tbody tr:nth-child(odd)  { background: var(--tree-odd); }
+  tbody tr:nth-child(even) { background: var(--tree-even); }
+  tbody tr:hover { background: var(--tree-sel) !important; }
+  tbody tr.selected { background: var(--tree-sel) !important; outline: 2px solid var(--accent); outline-offset: -2px; }
+  tbody td { padding: 10px 14px; }
+  tbody td.center { text-align: center; }
+  tbody td .name-bold { font-weight: 700; }
+  tbody td .sub { font-size: 10px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
+
+  /* row colors */
+  tbody tr.row-green td { background: var(--green-bg); color: var(--green-fg); }
+  tbody tr.row-green:hover td { background: #baf0c8 !important; }
+  tbody tr.row-yellow td { background: var(--yellow-bg); color: var(--yellow-fg); }
+  tbody tr.row-yellow:hover td { background: #ffedaa !important; }
+  tbody tr.row-red td { background: var(--red-bg); color: var(--red-fg); }
+  tbody tr.row-red:hover td { background: #ffd0cc !important; }
+  tbody tr.row-green.selected td, tbody tr.row-yellow.selected td, tbody tr.row-red.selected td { background: var(--tree-sel) !important; color: var(--text-primary) !important; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 700;
+  }
+  .badge-green  { background: var(--green-bg); color: var(--green-fg); }
+  .badge-yellow { background: var(--yellow-bg); color: var(--yellow-fg); }
+  .badge-red    { background: var(--red-bg); color: var(--red-fg); }
+
+  /* ─── HISTORY TABLE ─── */
+  .hist-row-odd  { background: var(--tree-odd); }
+  .hist-row-even { background: var(--tree-even); }
+
+  .hist-header-actions { display: flex; align-items: center; gap: 12px; }
+  .btn-clear-hist {
+    height: 30px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--bg-input); color: var(--text-secondary); font-family: inherit;
+    font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s;
+  }
+  .btn-clear-hist:hover { background: var(--accent-red); color: #fff; border-color: var(--accent-red); }
+
+  /* ─── STATUS BAR ─── */
+  #statusbar {
+    height: 32px; background: var(--bg-sidebar); border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 16px; flex-shrink: 0;
+  }
+  #statusbar .status-text { font-size: 11px; font-weight: 700; color: var(--accent); font-family: 'JetBrains Mono', monospace; }
+  #statusbar .version { font-size: 11px; color: var(--text-muted); font-weight: 500; }
+
+  /* ─── CONTEXT MENU ─── */
+  #ctx-menu {
+    position: fixed; background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.14); z-index: 9999;
+    min-width: 180px; padding: 4px; display: none;
+  }
+  .ctx-item {
+    display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+    border-radius: 6px; font-size: 13px; cursor: pointer; color: var(--text-primary);
+    transition: background .12s;
+  }
+  .ctx-item:hover { background: var(--bg-input); }
+  .ctx-item.danger { color: var(--accent-red); }
+  .ctx-item.danger:hover { background: var(--red-bg); }
+  .ctx-sep { height: 1px; background: var(--border); margin: 4px 0; }
+
+  /* ─── MODAL / DIALOG ─── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(31,35,40,.5);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 10000; opacity: 0; pointer-events: none; transition: opacity .18s;
+  }
+  .modal-overlay.show { opacity: 1; pointer-events: all; }
+  .modal {
+    background: var(--bg-card); border-radius: 14px; box-shadow: 0 24px 64px rgba(0,0,0,.22);
+    min-width: 420px; max-width: 480px; overflow: hidden;
+    transform: scale(.94) translateY(8px); transition: transform .18s;
+  }
+  .modal-overlay.show .modal { transform: scale(1) translateY(0); }
+  .modal-header { background: var(--bg-sidebar); padding: 14px 20px; display: flex; align-items: center; gap: 10px; }
+  .modal-header h3 { font-size: 15px; font-weight: 700; }
+  .modal-body { padding: 20px; }
+  .modal-body p { font-size: 14px; color: var(--text-secondary); line-height: 1.6; white-space: pre-line; }
+  .modal-footer { padding: 14px 20px; display: flex; justify-content: flex-end; gap: 10px; }
+  .modal-btn { height: 38px; padding: 0 20px; border-radius: 8px; border: none; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 700; transition: all .15s; }
+  .modal-btn-cancel { background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); }
+  .modal-btn-cancel:hover { background: var(--border); }
+  .modal-btn-confirm { background: var(--accent); color: #fff; }
+  .modal-btn-confirm:hover { background: var(--accent-hover); }
+  .modal-btn-danger { background: var(--accent-red); color: #fff; }
+  .modal-btn-danger:hover { background: #a31c22; }
+
+  /* Edit modal */
+  .edit-form .form-group { margin-bottom: 10px; }
+  .edit-form input, .edit-form select {
+    width: 100%; height: 38px; padding: 0 10px;
+    background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px;
+    font-family: inherit; font-size: 13px; color: var(--text-primary); outline: none;
+  }
+  .edit-form input:focus, .edit-form select:focus { border-color: var(--accent); background: #fff; }
+  .edit-form .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .edit-form label { display: block; font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 4px; }
+
+  /* ─── TOAST ─── */
+  #toast-container { position: fixed; bottom: 44px; left: 50%; transform: translateX(-50%); z-index: 99999; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
+  .toast {
+    display: flex; align-items: center; gap: 10px; padding: 12px 18px;
+    border-radius: 10px; border: 2px solid; font-size: 13px; font-weight: 600;
+    box-shadow: 0 4px 16px rgba(0,0,0,.14); white-space: nowrap;
+    animation: toastIn .25s ease-out forwards;
+    pointer-events: all;
+  }
+  .toast.out { animation: toastOut .25s ease-in forwards; }
+  @keyframes toastIn  { from { opacity:0; transform: translateY(12px) scale(.94); } to { opacity:1; transform: translateY(0) scale(1); } }
+  @keyframes toastOut { from { opacity:1; transform: translateY(0) scale(1); }  to { opacity:0; transform: translateY(8px) scale(.96); } }
+  .toast-success { background: #E6F9EC; border-color: var(--accent-green); color: var(--accent-green); }
+  .toast-error   { background: #FFF0EE; border-color: var(--accent-red);   color: var(--accent-red); }
+  .toast-warning { background: #FFFAEB; border-color: var(--accent-warn);  color: var(--accent-warn); }
+  .toast-info    { background: #EEF4FF; border-color: var(--accent-blue);  color: var(--accent-blue); }
+
+  /* ─── EMPTY STATE ─── */
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-state p { font-size: 14px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- TOP BAR -->
+  <div id="topbar">
+    <div class="brand">
+      <span class="anchor">⚓</span>
+      <h1>PT Feen Marine<span>  |  HR Leave Management System</span></h1>
+    </div>
+    <div class="clock-box">
+      <span class="clock-date" id="clock-date"></span>
+      <span class="clock-time" id="clock-time"></span>
+    </div>
+  </div>
+
+  <!-- BODY -->
+  <div id="body">
+
+    <!-- SIDEBAR -->
+    <div id="sidebar">
+      <!-- Stats -->
+      <div class="stat-grid">
+        <div class="stat-card blue">  <div class="val" id="stat-total">0</div><div class="lbl">Total<br>Karyawan</div></div>
+        <div class="stat-card green"><div class="val" id="stat-aman">0</div> <div class="lbl">Cuti<br>Aman</div></div>
+        <div class="stat-card warn"> <div class="val" id="stat-low">0</div>  <div class="lbl">Sisa<br>≤ 3</div></div>
+        <div class="stat-card red">  <div class="val" id="stat-out">0</div>  <div class="lbl">Cuti<br>Habis</div></div>
+      </div>
+      <div class="sep"></div>
+
+      <div class="sidebar-form">
+        <!-- TAMBAH KARYAWAN -->
+        <div class="form-section-label">Tambah Karyawan Baru</div>
+        <div class="form-group"><label>Nama Karyawan</label><input id="inp-nama" type="text" placeholder="Masukkan nama lengkap"/></div>
+        <div class="form-group">
+          <label>Departemen</label>
+          <select id="inp-dept"></select>
+        </div>
+        <div class="form-group">
+          <label>Tanggal Kontrak</label>
+          <input id="inp-tgl" type="date"/>
+        </div>
+        <div class="form-group"><label>Jatah Cuti (Hari/Tahun)</label><input id="inp-jatah" type="number" placeholder="Contoh: 12" min="1" value="12"/></div>
+        <button class="btn btn-primary" onclick="saveEmployee()">➕  Tambah Karyawan</button>
+
+        <div class="sep" style="margin:14px 0;"></div>
+
+        <!-- LOG CUTI -->
+        <div class="form-section-label">Pengambilan Cuti</div>
+        <div class="form-group"><label>Tanggal Cuti</label><input id="inp-tgl-cuti" type="date"/></div>
+        <button class="btn btn-green" onclick="logCuti()">📋  Log Cuti Karyawan</button>
+
+        <div class="sep" style="margin:14px 0;"></div>
+
+        <!-- UTILITAS -->
+        <button class="btn btn-ghost" onclick="exportCSV()">📤  Export CSV</button>
+        <button class="btn btn-ghost" style="margin-top:6px" onclick="refreshAll()">🔄  Refresh Data</button>
+        <button class="btn btn-warn" style="margin-top:6px" onclick="resetJatahSelected()">♻️  Reset Jatah Cuti</button>
+      </div>
+    </div>
+
+    <!-- MAIN -->
+    <div id="main">
+      <!-- Toolbar -->
+      <div id="toolbar">
+        <button class="tab-btn active" id="tab-dash-btn" onclick="switchTab('dashboard')">📊  Dashboard</button>
+        <button class="tab-btn" id="tab-hist-btn" onclick="switchTab('history')">📜  Log History</button>
+        <div class="toolbar-divider"></div>
+        <div class="toolbar-right">
+          <select id="dept-filter" onchange="renderTable()"></select>
+          <div class="search-wrap">
+            <input id="search-inp" type="text" placeholder="Cari nama karyawan..." oninput="renderTable()"/>
+          </div>
+        </div>
+      </div>
+
+      <!-- Content -->
+      <div id="content">
+        <!-- Dashboard -->
+        <div class="tab-panel active" id="panel-dashboard">
+          <div class="table-card" style="height:calc(100vh - 62px - 50px - 32px - 32px)">
+            <div class="table-card-header">
+              <span class="title">Data Karyawan  ·  PT Feen Marine</span>
+              <span class="hint">Klik judul kolom untuk urutkan  ·  Klik kanan baris untuk aksi</span>
+            </div>
+            <div class="table-wrap" id="table-wrap">
+              <table id="emp-table">
+                <thead>
+                  <tr>
+                    <th onclick="sortBy('Nama')" id="th-Nama">Nama</th>
+                    <th onclick="sortBy('Departemen')" id="th-Departemen">Departemen</th>
+                    <th onclick="sortBy('Kontrak')" id="th-Kontrak" class="center">Kontrak</th>
+                    <th onclick="sortBy('Jatah')" id="th-Jatah" class="center">Jatah</th>
+                    <th onclick="sortBy('Terpakai')" id="th-Terpakai" class="center">Terpakai</th>
+                    <th onclick="sortBy('Sisa')" id="th-Sisa" class="center">Sisa</th>
+                    <th onclick="sortBy('Status')" id="th-Status" class="center">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="emp-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- History -->
+        <div class="tab-panel" id="panel-history">
+          <div class="table-card" style="height:calc(100vh - 62px - 50px - 32px - 32px)">
+            <div class="table-card-header">
+              <span class="title">Log Aktivitas Pengambilan Cuti  ·  PT Feen Marine</span>
+              <div class="hist-header-actions">
+                <button class="btn-clear-hist" onclick="clearHistory()">🗑️  Bersihkan History</button>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table id="hist-table">
+                <thead>
+                  <tr>
+                    <th onclick="sortHistBy('Waktu')"       id="hth-Waktu">Waktu</th>
+                    <th onclick="sortHistBy('Nama')"        id="hth-Nama">Nama</th>
+                    <th onclick="sortHistBy('Departemen')"  id="hth-Departemen">Departemen</th>
+                    <th onclick="sortHistBy('Tgl_Cuti')"    id="hth-Tgl_Cuti" class="center">Tgl Cuti</th>
+                    <th onclick="sortHistBy('Keterangan')"  id="hth-Keterangan">Keterangan</th>
+                  </tr>
+                </thead>
+                <tbody id="hist-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Status bar -->
+      <div id="statusbar">
+        <span class="status-text" id="status-txt">● Siap</span>
+        <span class="version">PT Feen Marine  ·  Batam, Indonesia  ·  HR Leave Management System v5.3</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Context Menu -->
+<div id="ctx-menu">
+  <div class="ctx-item" onclick="ctxEdit()">✏️  Edit Profil</div>
+  <div class="ctx-item" onclick="ctxReset()">♻️  Reset Jatah Cuti</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item danger" onclick="ctxDelete()">❌  Hapus Karyawan</div>
+</div>
+
+<!-- Confirm Dialog -->
+<div class="modal-overlay" id="confirm-overlay">
+  <div class="modal">
+    <div class="modal-header"><span id="confirm-icon">❓</span><h3 id="confirm-title"></h3></div>
+    <div class="modal-body"><p id="confirm-msg"></p></div>
+    <div class="modal-footer">
+      <button class="modal-btn modal-btn-cancel" onclick="closeConfirm()">  Batal</button>
+      <button class="modal-btn modal-btn-confirm" id="confirm-ok-btn" onclick="confirmOK()"> Ya, Lanjutkan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Dialog -->
+<div class="modal-overlay" id="edit-overlay">
+  <div class="modal">
+    <div class="modal-header">✏️ <h3>Edit Data Karyawan</h3></div>
+    <div class="modal-body edit-form">
+      <input type="hidden" id="edit-old-nama"/>
+      <div class="form-group"><label>Nama Karyawan</label><input id="edit-nama" type="text"/></div>
+      <div class="form-group"><label>Departemen</label><select id="edit-dept"></select></div>
+      <div class="row2">
+        <div class="form-group"><label>Tanggal Kontrak</label><input id="edit-tgl" type="date"/></div>
+        <div class="form-group"><label>Jatah Cuti (Hari)</label><input id="edit-jatah" type="number" min="1"/></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-btn modal-btn-cancel" onclick="closeEdit()">Batal</button>
+      <button class="modal-btn modal-btn-confirm" onclick="saveEdit()">💾  Simpan Perubahan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<script>
+// ─── DEPARTMENTS ───────────────────────────────────────────────────────────────
+const DEPARTMENTS = [
+  "Engineering","Electrical & Automation","Electrical Production","Procurement",
+  "Quality Control (QC)","Project Management","Sales & Marketing",
+  "After Sales & Service","Finance & Accounting","Human Resources (HR)",
+  "General Affairs (GA)","IT & Systems","HSE (Health, Safety & Environment)",
+  "Warehouse & Logistics","Management"
+];
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let employees = JSON.parse(localStorage.getItem('fm_employees') || '[]');
+let logs      = JSON.parse(localStorage.getItem('fm_logs')      || '[]');
+let selectedId = null;
+let sortCol    = 'Nama', sortAsc = true;
+let histSortCol = '', histSortAsc = true;
+let confirmCallback = null;
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+(function init() {
+  // Populate dept dropdowns
+  ['inp-dept','edit-dept'].forEach(id => {
+    const el = document.getElementById(id);
+    DEPARTMENTS.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = opt.textContent = d;
+      el.appendChild(opt);
+    });
+  });
+  const df = document.getElementById('dept-filter');
+  const all = document.createElement('option'); all.value=''; all.textContent='Semua Departemen'; df.appendChild(all);
+  DEPARTMENTS.forEach(d => { const o = document.createElement('option'); o.value=o.textContent=d; df.appendChild(o); });
+
+  // Set today as default
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('inp-tgl').value = today;
+  document.getElementById('inp-tgl-cuti').value = today;
+
+  renderTable(); renderHistory(); updateStats();
+  tickClock();
+})();
+
+// ─── CLOCK ────────────────────────────────────────────────────────────────────
+function tickClock() {
+  const now = new Date();
+  const days = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+  const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  document.getElementById('clock-date').textContent =
+    `${days[now.getDay()]}, ${String(now.getDate()).padStart(2,'0')} ${months[now.getMonth()]} ${now.getFullYear()}`;
+  document.getElementById('clock-time').textContent =
+    `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  setTimeout(tickClock, 1000);
+}
+
+// ─── STATUS BAR ───────────────────────────────────────────────────────────────
+let statusTimer;
+function setStatus(msg) {
+  clearTimeout(statusTimer);
+  document.getElementById('status-txt').textContent = msg;
+  statusTimer = setTimeout(() => document.getElementById('status-txt').textContent = '● Siap', 5000);
+}
+
+// ─── SAVE ─────────────────────────────────────────────────────────────────────
+function persist() {
+  localStorage.setItem('fm_employees', JSON.stringify(employees));
+  localStorage.setItem('fm_logs',      JSON.stringify(logs));
+}
+
+// ─── STATS ────────────────────────────────────────────────────────────────────
+function updateStats() {
+  const t = employees.length;
+  const aman = employees.filter(e => e.jatahAwal - e.terpakai > 3).length;
+  const low  = employees.filter(e => { const s=e.jatahAwal-e.terpakai; return s>0&&s<=3; }).length;
+  const out  = employees.filter(e => e.jatahAwal - e.terpakai <= 0).length;
+  document.getElementById('stat-total').textContent = t;
+  document.getElementById('stat-aman').textContent  = aman;
+  document.getElementById('stat-low').textContent   = low;
+  document.getElementById('stat-out').textContent   = out;
+}
+
+// ─── RENDER TABLE ─────────────────────────────────────────────────────────────
+function statusTag(sisa) {
+  if (sisa <= 0) return ['⛔ Habis', 'badge-red', 'row-red'];
+  if (sisa <= 3) return [`⚠️ Sisa ${sisa}`, 'badge-yellow', 'row-yellow'];
+  return [`✅ Sisa ${sisa}`, 'badge-green', 'row-green'];
+}
+
+function renderTable() {
+  const q    = document.getElementById('search-inp').value.trim().toLowerCase();
+  const dept = document.getElementById('dept-filter').value;
+
+  let rows = employees.map(e => ({...e, sisa: e.jatahAwal - e.terpakai}));
+
+  if (q)    rows = rows.filter(r => r.nama.toLowerCase().includes(q) || r.departemen.toLowerCase().includes(q));
+  if (dept) rows = rows.filter(r => r.departemen === dept);
+
+  const numCols = ['jatahAwal','terpakai','sisa'];
+  rows.sort((a,b) => {
+    let va = a[sortCol] ?? '', vb = b[sortCol] ?? '';
+    if (numCols.includes(sortCol)) { va = Number(va)||0; vb = Number(vb)||0; }
+    else { va = String(va).toLowerCase(); vb = String(vb).toLowerCase(); }
+    return sortAsc ? (va > vb ? 1 : va < vb ? -1 : 0) : (va < vb ? 1 : va > vb ? -1 : 0);
+  });
+
+  const tbody = document.getElementById('emp-tbody');
+  tbody.innerHTML = '';
+
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="icon">🗂️</div><p>Belum ada data karyawan</p></div></td></tr>`;
+    return;
+  }
+
+  rows.forEach(emp => {
+    const [statusText, badgeClass, rowClass] = statusTag(emp.sisa);
+    const tr = document.createElement('tr');
+    tr.dataset.id = emp.id;
+    tr.className = rowClass + (emp.id === selectedId ? ' selected' : '');
+    tr.innerHTML = `
+      <td><div class="name-bold">${esc(emp.nama)}</div><div class="sub">${esc(emp.departemen)}</div></td>
+      <td>${esc(emp.departemen)}</td>
+      <td class="center">${emp.tglKontrak||'-'}</td>
+      <td class="center">${emp.jatahAwal}</td>
+      <td class="center">${emp.terpakai}</td>
+      <td class="center"><strong>${emp.sisa}</strong></td>
+      <td class="center"><span class="badge ${badgeClass}">${statusText}</span></td>
+    `;
+    tr.addEventListener('click', () => selectRow(emp.id, tr));
+    tr.addEventListener('contextmenu', e => { e.preventDefault(); selectRow(emp.id, tr); showCtx(e.clientX, e.clientY); });
+    tr.addEventListener('dblclick', () => openEditDialog(emp.id));
+    tbody.appendChild(tr);
+  });
+  updateStats();
+}
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function selectRow(id, tr) {
+  document.querySelectorAll('#emp-tbody tr').forEach(r => r.classList.remove('selected'));
+  selectedId = id;
+  tr.classList.add('selected');
+}
+
+// ─── SORTING ──────────────────────────────────────────────────────────────────
+const colMap = { Nama:'nama', Departemen:'departemen', Kontrak:'tglKontrak', Jatah:'jatahAwal', Terpakai:'terpakai', Sisa:'sisa', Status:'sisa' };
+function sortBy(col) {
+  if (sortCol === colMap[col]) sortAsc = !sortAsc;
+  else { sortCol = colMap[col]; sortAsc = true; }
+  document.querySelectorAll('thead th[id^="th-"]').forEach(th => {
+    th.classList.remove('sorted');
+    th.textContent = th.textContent.replace(/ [▲▼]$/,'');
+  });
+  const th = document.getElementById('th-'+col);
+  th.classList.add('sorted');
+  th.textContent += sortAsc ? ' ▲' : ' ▼';
+  renderTable();
+}
+
+const histColMap = { Waktu:'timestamp', Nama:'nama', Departemen:'departemen', Tgl_Cuti:'tglCuti', Keterangan:'keterangan' };
+function sortHistBy(col) {
+  if (histSortCol === histColMap[col]) histSortAsc = !histSortAsc;
+  else { histSortCol = histColMap[col]; histSortAsc = true; }
+  document.querySelectorAll('thead th[id^="hth-"]').forEach(th => { th.textContent = th.textContent.replace(/ [▲▼]$/,''); });
+  const th = document.getElementById('hth-'+col);
+  th.textContent += histSortAsc ? ' ▲' : ' ▼';
+  renderHistory();
+}
+
+// ─── ADD EMPLOYEE ─────────────────────────────────────────────────────────────
+function saveEmployee() {
+  const nama  = document.getElementById('inp-nama').value.trim();
+  const dept  = document.getElementById('inp-dept').value;
+  const tgl   = document.getElementById('inp-tgl').value;
+  const jatah = parseInt(document.getElementById('inp-jatah').value) || 0;
+  if (!nama) { toast('Nama karyawan tidak boleh kosong!','error'); return; }
+  if (!tgl)  { toast('Tanggal kontrak harus diisi!','error'); return; }
+  if (jatah <= 0) { toast('Jatah cuti harus lebih dari 0!','error'); return; }
+  if (employees.find(e => e.nama.toLowerCase() === nama.toLowerCase())) {
+    toast(`Karyawan '${nama}' sudah terdaftar!`, 'warning'); return;
+  }
+  const emp = { id: 'emp-'+Date.now(), nama, departemen: dept, tglKontrak: tgl, jatahAwal: jatah, terpakai: 0 };
+  employees.push(emp);
+  persist();
+  addLog(nama, dept, tgl, `Karyawan baru ditambahkan (Jatah: ${jatah} hari)`);
+  document.getElementById('inp-nama').value = '';
+  document.getElementById('inp-jatah').value = '12';
+  renderTable(); renderHistory();
+  setStatus(`✓  Karyawan '${nama}' (${dept}) ditambahkan.`);
+  toast(`'${nama}' — ${dept} berhasil ditambahkan.`, 'success');
+}
+
+// ─── LOG CUTI ─────────────────────────────────────────────────────────────────
+function logCuti() {
+  if (!selectedId) { toast('Pilih karyawan di tabel terlebih dahulu.','warning'); return; }
+  const emp = employees.find(e => e.id === selectedId);
+  if (!emp) { toast('Karyawan tidak ditemukan!','error'); return; }
+  const sisa = emp.jatahAwal - emp.terpakai;
+  if (sisa <= 0) { toast(`Jatah cuti '${emp.nama}' sudah habis!`,'error'); return; }
+  const tglCuti = document.getElementById('inp-tgl-cuti').value;
+  if (!tglCuti) { toast('Tanggal cuti harus diisi!','error'); return; }
+  showConfirm('Konfirmasi Cuti',
+    `Catat cuti untuk:\n${emp.nama}  ·  ${emp.departemen}\nTanggal: ${formatDate(tglCuti)}`,
+    false, () => {
+      emp.terpakai += 1;
+      persist();
+      addLog(emp.nama, emp.departemen, tglCuti, 'Cuti 1 Hari');
+      renderTable(); renderHistory();
+      setStatus(`✓  Cuti ${emp.nama} dicatat.`);
+      toast(`Cuti '${emp.nama}' berhasil dicatat.`, 'success');
+    });
+}
+
+// ─── RESET JATAH ─────────────────────────────────────────────────────────────
+function resetJatahSelected() {
+  if (!selectedId) { toast('Pilih karyawan di tabel terlebih dahulu.','warning'); return; }
+  const emp = employees.find(e => e.id === selectedId);
+  if (!emp) return;
+  showConfirm('Reset Jatah Cuti',
+    `Reset jatah cuti '${emp.nama}' (${emp.departemen})\nkembali ke ${emp.jatahAwal} hari (Terpakai → 0)?\n\nAksi ini akan dicatat di log.`,
+    false, () => {
+      const today = new Date().toISOString().slice(0,10);
+      addLog(emp.nama, emp.departemen, today, `Reset Jatah → ${emp.jatahAwal} hari`);
+      emp.terpakai = 0;
+      persist();
+      renderTable(); renderHistory();
+      setStatus(`♻  Jatah cuti '${emp.nama}' direset.`);
+      toast(`Jatah cuti '${emp.nama}' berhasil direset.`, 'success');
+    });
+}
+
+// ─── CONTEXT MENU ─────────────────────────────────────────────────────────────
+function showCtx(x, y) {
+  const menu = document.getElementById('ctx-menu');
+  menu.style.display = 'block';
+  menu.style.left = Math.min(x, window.innerWidth - 200) + 'px';
+  menu.style.top  = Math.min(y, window.innerHeight - 120) + 'px';
+}
+function closeCtx() { document.getElementById('ctx-menu').style.display = 'none'; }
+document.addEventListener('click', closeCtx);
+document.addEventListener('scroll', closeCtx, true);
+
+function ctxEdit()   { closeCtx(); if (selectedId) openEditDialog(selectedId); else toast('Pilih karyawan dulu.','warning'); }
+function ctxReset()  { closeCtx(); resetJatahSelected(); }
+function ctxDelete() { closeCtx(); deleteEmployee(); }
+
+function deleteEmployee() {
+  if (!selectedId) { toast('Pilih karyawan di tabel terlebih dahulu.','warning'); return; }
+  const emp = employees.find(e => e.id === selectedId);
+  if (!emp) return;
+  showConfirm('Hapus Karyawan', `Data '${emp.nama}' akan dihapus permanen.\nLanjutkan?`, true, () => {
+    employees = employees.filter(e => e.id !== selectedId);
+    selectedId = null;
+    persist();
+    renderTable(); renderHistory();
+    setStatus(`✕  Data '${emp.nama}' dihapus.`);
+    toast(`Karyawan '${emp.nama}' dihapus.`, 'warning');
+  });
+}
+
+// ─── EDIT DIALOG ─────────────────────────────────────────────────────────────
+function openEditDialog(id) {
+  const emp = employees.find(e => e.id === id);
+  if (!emp) return;
+  document.getElementById('edit-old-nama').value = emp.nama;
+  document.getElementById('edit-nama').value     = emp.nama;
+  document.getElementById('edit-dept').value     = emp.departemen;
+  document.getElementById('edit-tgl').value      = emp.tglKontrak;
+  document.getElementById('edit-jatah').value    = emp.jatahAwal;
+  document.getElementById('edit-overlay').classList.add('show');
+}
+function closeEdit() { document.getElementById('edit-overlay').classList.remove('show'); }
+function saveEdit() {
+  const oldNama = document.getElementById('edit-old-nama').value;
+  const emp = employees.find(e => e.nama === oldNama || e.id === selectedId);
+  if (!emp) { closeEdit(); return; }
+  const newNama  = document.getElementById('edit-nama').value.trim();
+  const newDept  = document.getElementById('edit-dept').value;
+  const newTgl   = document.getElementById('edit-tgl').value;
+  const newJatah = parseInt(document.getElementById('edit-jatah').value)||12;
+  if (!newNama) { toast('Nama tidak boleh kosong!','error'); return; }
+  emp.nama        = newNama;
+  emp.departemen  = newDept;
+  emp.tglKontrak  = newTgl;
+  emp.jatahAwal   = newJatah;
+  persist();
+  renderTable(); renderHistory();
+  setStatus(`✓  Data '${newNama}' diperbarui.`);
+  toast(`Data '${newNama}' diperbarui.`, 'success');
+  closeEdit();
+}
+
+// ─── CONFIRM DIALOG ───────────────────────────────────────────────────────────
+function showConfirm(title, msg, danger, cb) {
+  confirmCallback = cb;
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-msg').textContent   = msg;
+  document.getElementById('confirm-icon').textContent  = danger ? '⚠️' : '❓';
+  const btn = document.getElementById('confirm-ok-btn');
+  btn.className = 'modal-btn ' + (danger ? 'modal-btn-danger' : 'modal-btn-confirm');
+  document.getElementById('confirm-overlay').classList.add('show');
+}
+function closeConfirm() { document.getElementById('confirm-overlay').classList.remove('show'); confirmCallback = null; }
+function confirmOK() { if (confirmCallback) confirmCallback(); closeConfirm(); }
+
+// ─── HISTORY ─────────────────────────────────────────────────────────────────
+function addLog(nama, dept, tglCuti, keterangan) {
+  const now = new Date();
+  const ts  = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  logs.unshift({ id:'log-'+Date.now(), timestamp: ts, nama, departemen: dept, tglCuti, keterangan });
+  if (logs.length > 200) logs = logs.slice(0,200);
+  persist();
+}
+
+function renderHistory() {
+  let rows = [...logs];
+  if (histSortCol) {
+    rows.sort((a,b) => {
+      let va = a[histSortCol]||'', vb = b[histSortCol]||'';
+      va = va.toLowerCase(); vb = vb.toLowerCase();
+      return histSortAsc ? (va>vb?1:va<vb?-1:0) : (va<vb?1:va>vb?-1:0);
+    });
+  }
+  const tbody = document.getElementById('hist-tbody');
+  tbody.innerHTML = '';
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="icon">📋</div><p>Belum ada log aktivitas</p></div></td></tr>`;
+    return;
+  }
+  rows.forEach((log, i) => {
+    const tr = document.createElement('tr');
+    tr.className = i%2===0 ? 'hist-row-odd' : 'hist-row-even';
+    tr.innerHTML = `
+      <td style="font-family:'JetBrains Mono',monospace;font-size:11px;white-space:nowrap">${esc(log.timestamp)}</td>
+      <td><strong>${esc(log.nama)}</strong></td>
+      <td>${esc(log.departemen||'-')}</td>
+      <td class="center">${esc(log.tglCuti||'-')}</td>
+      <td>${esc(log.keterangan||'-')}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function clearHistory() {
+  showConfirm('Bersihkan History',
+    'Semua log aktivitas cuti akan dihapus permanen.\nLanjutkan?',
+    true, () => {
+      logs = [];
+      persist();
+      renderHistory();
+      setStatus('✓  Log history dibersihkan.');
+      toast('Semua log history dihapus.', 'info');
+    });
+}
+
+// ─── EXPORT CSV ───────────────────────────────────────────────────────────────
+function exportCSV() {
+  const ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  let csv = 'Nama,Departemen,Tgl_Kontrak,Jatah_Awal,Terpakai,Sisa\n';
+  employees.forEach(e => {
+    const sisa = e.jatahAwal - e.terpakai;
+    csv += `"${e.nama}","${e.departemen}","${e.tglKontrak}",${e.jatahAwal},${e.terpakai},${sisa}\n`;
+  });
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `export_cuti_feenmarine_${ts}.csv`; a.click();
+  setStatus('✓  Data berhasil diekspor.');
+  toast('Ekspor CSV berhasil!','success');
+}
+
+// ─── REFRESH ─────────────────────────────────────────────────────────────────
+function refreshAll() {
+  renderTable(); renderHistory();
+  setStatus('✓  Data direfresh.');
+  toast('Data berhasil direfresh.','info');
+}
+
+// ─── TABS ─────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-'+tab).classList.add('active');
+  document.getElementById('tab-'+tab.slice(0,4)+'-btn').classList.add('active');
+}
+
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+function toast(msg, kind='success') {
+  const icons = { success:'✓ ', error:'✕ ', warning:'⚠ ', info:'ℹ ' };
+  const el = document.createElement('div');
+  el.className = `toast toast-${kind}`;
+  el.textContent = (icons[kind]||'') + msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => {
+    el.classList.add('out');
+    el.addEventListener('animationend', () => el.remove(), {once:true});
+  }, 2800);
+}
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+function formatDate(d) {
+  if (!d) return '-';
+  const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  const dt = new Date(d+'T00:00:00');
+  return `${String(dt.getDate()).padStart(2,'0')} ${months[dt.getMonth()]} ${dt.getFullYear()}`;
+}
+</script>
+</body>
+</html>
